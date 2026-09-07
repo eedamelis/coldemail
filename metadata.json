@@ -2,5 +2,7 @@
   "name": "PitchHook",
   "description": "Generate tailored outreach pitch drafts from company text with custom value angles, evidence snippets, and ready-to-send emails.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

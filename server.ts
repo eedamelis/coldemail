@@ -11,6 +11,20 @@ const PORT = 3000;
 
 app.use(express.json({ limit: "2mb" }));
 
+// Serve static assets from public directory (manifest, service worker, icons)
+app.use(
+  express.static(path.join(process.cwd(), "public"), {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith("sw.js")) {
+        res.setHeader("Service-Worker-Allowed", "/");
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      } else if (filePath.endsWith(".webmanifest")) {
+        res.setHeader("Content-Type", "application/manifest+json");
+      }
+    },
+  }),
+);
+
 // Lazy initialization of Gemini client
 let genAIClient: GoogleGenAI | null = null;
 function getGenAI(): GoogleGenAI {
