@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useTransition } from "react";
+import { GoogleGenAI, Type } from "@google/genai";
 import { FileText, Sparkles, Clock, RotateCcw, History } from "lucide-react";
 import { Header } from "./components/Header";
 import { PitchForm } from "./components/PitchForm";
@@ -156,36 +157,92 @@ export default function App() {
     setErrorMessage(null);
 
     try {
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          companyText,
-          offering,
-          angle: selectedAngle,
-          customAngleText:
-            selectedAngle === "custom" ? customAngleText : undefined,
-        }),
-      });
-
-      let responseText = "";
-      try {
-        responseText = await response.text();
-      } catch (e) {
-        throw new Error("Unable to read response from server.");
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      if (!apiKey) {
+        throw new Error(
+          "Gemini API key is not configured. Please add VITE_GEMINI_API_KEY or set your GEMINI_API_KEY in the environment secrets.",
+        );
       }
 
-      if (!response.ok) {
-        let errMsg = "Failed to generate pitch. Please try again.";
-        try {
-          const errObj = JSON.parse(responseText);
-          if (errObj.error) errMsg = errObj.error;
-        } catch {
-          errMsg = `Server responded with status ${response.status}`;
-        }
-        throw new Error(errMsg);
+      // Initialize Gemini directly on client-side as specified in Lab 4 Step 2
+      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+
+      const prompt = `Analyze the target company's copy and our offering to produce a strictly grounded cold outreach pitch.
+Invent nothing. Extract quotes and factual claims directly from the target company text.
+
+Target Company Text:
+"""
+${companyText.trim()}
+"""
+
+Our Offering / Value Proposition:
+"""
+${offering.trim()}
+"""
+
+Selected Outreach Angle:
+${selectedAngle}${customAngleText ? ` (Custom angle specifics: ${customAngleText})` : ""}
+
+Generate a JSON object conforming strictly to the response schema:
+1. "subjectLine": A compelling, non-spammy outreach email subject line (under 9 words, natural casing).
+2. "hookThesis": The core outreach hook or thesis articulating mutual value between their stated focus/challenge and our offering, strictly derived from the text.
+3. "emailBody": A ready-to-send 3-paragraph pitch email draft:
+   - Paragraph 1: Relevant observation referencing specific facts/quotes from their context without generic flattery.
+   - Paragraph 2: Direct connection explaining how our offering supports their stated direction or eliminates friction.
+   - Paragraph 3: A low-friction transition into a 10-minute exploration.
+4. "keyEvidencePoints": An array of 1 to 3 exact quotes or factual details extracted directly from the target company text.
+
+If the input company text contains no usable information or facts, return an empty string for subjectLine, hookThesis, and emailBody, and an empty array for keyEvidencePoints.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config: {
+          systemInstruction:
+            "Invent nothing. Extract and pitch based strictly on the provided company copy and offering. If the input contains no usable information, return an empty pitch or appropriate fallback.",
+          temperature: 0.2,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              subjectLine: {
+                type: Type.STRING,
+                description: "Compelling, non-spammy outreach email subject line",
+              },
+              hookThesis: {
+                type: Type.STRING,
+                description:
+                  "Core outreach hook or thesis articulating mutual value based strictly on target intel and offering",
+              },
+              emailBody: {
+                type: Type.STRING,
+                description:
+                  "Ready-to-send 3-paragraph pitch email draft grounded strictly in the provided company copy and offering",
+              },
+              keyEvidencePoints: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.STRING,
+                },
+                description:
+                  "Key quotes or factual evidence points extracted strictly from the target company copy",
+              },
+            },
+            required: [
+              "subjectLine",
+              "hookThesis",
+              "emailBody",
+              "keyEvidencePoints",
+            ],
+          },
+        },
+      });
+
+      const responseText = response.text;
+      if (!responseText) {
+        throw new Error(
+          "The AI model returned an empty response. Please try again.",
+        );
       }
 
       let parsedData: unknown;
@@ -199,7 +256,7 @@ export default function App() {
 
       // Strict validation of the parsed JSON response before rendering it to the UI
       if (!parsedData || typeof parsedData !== "object") {
-        throw new Error("Invalid pitch format received from server. Please try again.");
+        throw new Error("Invalid pitch format received from AI model. Please try again.");
       }
 
       const raw = parsedData as Record<string, unknown>;
