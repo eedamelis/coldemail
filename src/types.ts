@@ -1,10 +1,17 @@
 export interface PitchResult {
-  angle_title: string;
-  evidence_snippet: string;
-  rationale: string;
-  subject_line: string;
-  email_body: string;
-  call_to_action: string;
+  // Structured Output fields
+  subjectLine: string;
+  hookThesis: string;
+  emailBody: string;
+  keyEvidencePoints: string[];
+
+  // Compatibility aliases
+  angle_title?: string;
+  evidence_snippet?: string;
+  rationale?: string;
+  subject_line?: string;
+  email_body?: string;
+  call_to_action?: string;
 }
 
 export interface PitchRecord {

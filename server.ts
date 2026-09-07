@@ -51,15 +51,15 @@ app.post("/api/generate", async (req, res) => {
 
     const ai = getGenAI();
 
-    const prompt = `You are a world-class B2B partnership and cold outreach copywriter.
-Analyze the target company's text and craft a bespoke, compelling, high-converting outreach pitch based on the specified offering and outreach angle.
+    const prompt = `Analyze the target company's copy and our offering to produce a strictly grounded cold outreach pitch.
+Invent nothing. Extract quotes and factual claims directly from the target company text.
 
 Target Company Text:
 """
 ${companyText.trim()}
 """
 
-Our Offering / Product / Capability:
+Our Offering / Value Proposition:
 """
 ${offering.trim()}
 """
@@ -67,63 +67,56 @@ ${offering.trim()}
 Selected Outreach Angle:
 ${angle}${customAngleText ? ` (Custom angle specifics: ${customAngleText})` : ""}
 
-Instructions:
-1. "angle_title": A punchy, 3-6 word value hook summarizing the angle (e.g. "Accelerating Enterprise API Onboarding", "Reducing Churn in Mobile Self-Checkout").
-2. "evidence_snippet": An exact or near-exact high-signal quote or factual detail extracted directly from the provided company text demonstrating genuine research.
-3. "rationale": Exactly 1 concise sentence articulating why our offering and their stated goal/challenge create clear mutual value.
-4. "subject_line": A short, curiosity-inducing, non-spammy cold email subject line (under 9 words, natural sentence case or lowercase).
-5. "email_body": A high-converting 3-paragraph pitch email draft:
-   - Paragraph 1: Relevant observation referencing the target company's specific context/evidence without generic flattery.
-   - Paragraph 2: Direct connection to what we do and how it eliminates their friction or unlocks an opportunity with credible context.
-   - Paragraph 3: A polite, frictionless transition into a low-pressure conversation.
-   Keep the tone human, concise, professional, and free of sales buzzwords.
-6. "call_to_action": A single, low-friction next step (e.g., "Open to seeing a 90-second loom showing how this works?", "Worth a 10-minute chat this Thursday?").
+Generate a JSON object conforming strictly to the response schema:
+1. "subjectLine": A compelling, non-spammy outreach email subject line (under 9 words, natural casing).
+2. "hookThesis": The core outreach hook or thesis articulating mutual value between their stated focus/challenge and our offering, strictly derived from the text.
+3. "emailBody": A ready-to-send 3-paragraph pitch email draft:
+   - Paragraph 1: Relevant observation referencing specific facts/quotes from their context without generic flattery.
+   - Paragraph 2: Direct connection explaining how our offering supports their stated direction or eliminates friction.
+   - Paragraph 3: A low-friction transition into a 10-minute exploration.
+4. "keyEvidencePoints": An array of 1 to 3 exact quotes or factual details extracted directly from the target company text.
 
-Output strict JSON matching the requested schema.`;
+If the input company text contains no usable information or facts, return an empty string for subjectLine, hookThesis, and emailBody, and an empty array for keyEvidencePoints.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.8-flash",
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         systemInstruction:
-          "You are PitchHook AI, an elite cold outreach strategist. Generate genuine, bespoke, research-backed outreach hooks that avoid clichés, spam tropes, and generic buzzwords.",
-        temperature: 0.7,
+          "Invent nothing. Extract and pitch based strictly on the provided company copy and offering. If the input contains no usable information, return an empty pitch or appropriate fallback.",
+        temperature: 0.2,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            angle_title: {
-              type: Type.STRING,
-              description: "Core value angle or hook (3-6 words)",
-            },
-            evidence_snippet: {
-              type: Type.STRING,
-              description: "Relevant quote or factual statement extracted from the input text",
-            },
-            rationale: {
-              type: Type.STRING,
-              description: "Exactly 1 sentence explaining why this partnership creates mutual value",
-            },
-            subject_line: {
+            subjectLine: {
               type: Type.STRING,
               description: "Compelling, non-spammy outreach email subject line",
             },
-            email_body: {
+            hookThesis: {
               type: Type.STRING,
-              description: "Ready-to-send 3-paragraph pitch email draft",
+              description:
+                "Core outreach hook or thesis articulating mutual value based strictly on target intel and offering",
             },
-            call_to_action: {
+            emailBody: {
               type: Type.STRING,
-              description: "Low-friction next step CTA",
+              description:
+                "Ready-to-send 3-paragraph pitch email draft grounded strictly in the provided company copy and offering",
+            },
+            keyEvidencePoints: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.STRING,
+              },
+              description:
+                "Key quotes or factual evidence points extracted strictly from the target company copy",
             },
           },
           required: [
-            "angle_title",
-            "evidence_snippet",
-            "rationale",
-            "subject_line",
-            "email_body",
-            "call_to_action",
+            "subjectLine",
+            "hookThesis",
+            "emailBody",
+            "keyEvidencePoints",
           ],
         },
       },
@@ -131,7 +124,9 @@ Output strict JSON matching the requested schema.`;
 
     const text = response.text;
     if (!text) {
-      return res.status(502).json({ error: "Empty response received from Gemini. Please try again." });
+      return res.status(502).json({
+        error: "Empty response received from Gemini. Please try again.",
+      });
     }
 
     let parsed: Record<string, unknown>;
@@ -140,28 +135,55 @@ Output strict JSON matching the requested schema.`;
     } catch (parseError) {
       console.error("Invalid JSON from Gemini:", text, parseError);
       return res.status(502).json({
-        error: "The AI service returned an unreadable response format. Please try again.",
+        error:
+          "The AI service returned an unreadable response format. Please try again.",
       });
     }
 
-    // Verify all required fields
-    const requiredFields = [
-      "angle_title",
-      "evidence_snippet",
-      "rationale",
-      "subject_line",
-      "email_body",
-      "call_to_action",
-    ];
-    for (const field of requiredFields) {
-      if (!parsed[field] || typeof parsed[field] !== "string" || !(parsed[field] as string).trim()) {
-        return res.status(502).json({
-          error: "The AI pitch response was missing required fields. Please try again.",
-        });
-      }
+    const subjectLine =
+      typeof parsed.subjectLine === "string" ? parsed.subjectLine.trim() : "";
+    const hookThesis =
+      typeof parsed.hookThesis === "string" ? parsed.hookThesis.trim() : "";
+    const emailBody =
+      typeof parsed.emailBody === "string" ? parsed.emailBody.trim() : "";
+    const keyEvidencePoints = Array.isArray(parsed.keyEvidencePoints)
+      ? parsed.keyEvidencePoints.filter(
+          (item): item is string =>
+            typeof item === "string" && item.trim().length > 0,
+        )
+      : [];
+
+    // System rule fallback check:
+    // "If the input contains no usable information, return an empty pitch or appropriate fallback."
+    if (
+      !subjectLine ||
+      !hookThesis ||
+      !emailBody ||
+      keyEvidencePoints.length === 0
+    ) {
+      return res.status(422).json({
+        error:
+          "The provided company copy did not contain sufficient usable information to construct a verified pitch. Please provide more detailed company text.",
+      });
     }
 
-    return res.json(parsed);
+    // Build structured output with legacy aliases for complete backwards-compatibility
+    const validatedResult = {
+      subjectLine,
+      hookThesis,
+      emailBody,
+      keyEvidencePoints,
+      // Compatibility aliases
+      angle_title: hookThesis,
+      evidence_snippet: keyEvidencePoints.join(" • "),
+      rationale: hookThesis,
+      subject_line: subjectLine,
+      email_body: emailBody,
+      call_to_action:
+        "Would you be open to a quick 10-minute chat this week to explore this?",
+    };
+
+    return res.json(validatedResult);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to generate pitch";
     console.error("Error in /api/generate:", err);

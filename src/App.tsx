@@ -188,35 +188,91 @@ export default function App() {
         throw new Error(errMsg);
       }
 
-      let generated: PitchResult;
+      let parsedData: unknown;
       try {
-        generated = JSON.parse(responseText);
+        parsedData = JSON.parse(responseText);
       } catch {
         throw new Error(
           "The AI service returned an unreadable response format. Please try again.",
         );
       }
 
-      // Validate required fields
-      const requiredFields: (keyof PitchResult)[] = [
-        "angle_title",
-        "evidence_snippet",
-        "rationale",
-        "subject_line",
-        "email_body",
-        "call_to_action",
-      ];
-      for (const field of requiredFields) {
-        if (
-          !generated[field] ||
-          typeof generated[field] !== "string" ||
-          !generated[field].trim()
-        ) {
-          throw new Error(
-            "The generated pitch response was incomplete. Please try again.",
-          );
-        }
+      // Strict validation of the parsed JSON response before rendering it to the UI
+      if (!parsedData || typeof parsedData !== "object") {
+        throw new Error("Invalid pitch format received from server. Please try again.");
       }
+
+      const raw = parsedData as Record<string, unknown>;
+
+      const subjectLine =
+        typeof raw.subjectLine === "string"
+          ? raw.subjectLine.trim()
+          : typeof raw.subject_line === "string"
+          ? raw.subject_line.trim()
+          : "";
+
+      const hookThesis =
+        typeof raw.hookThesis === "string"
+          ? raw.hookThesis.trim()
+          : typeof raw.angle_title === "string"
+          ? raw.angle_title.trim()
+          : "";
+
+      const emailBody =
+        typeof raw.emailBody === "string"
+          ? raw.emailBody.trim()
+          : typeof raw.email_body === "string"
+          ? raw.email_body.trim()
+          : "";
+
+      let keyEvidencePoints: string[] = [];
+      if (Array.isArray(raw.keyEvidencePoints)) {
+        keyEvidencePoints = raw.keyEvidencePoints
+          .filter(
+            (item): item is string =>
+              typeof item === "string" && item.trim().length > 0,
+          )
+          .map((item) => item.trim());
+      } else if (
+        typeof raw.evidence_snippet === "string" &&
+        raw.evidence_snippet.trim()
+      ) {
+        keyEvidencePoints = [raw.evidence_snippet.trim()];
+      }
+
+      // System rule validation check:
+      // "If the input contains no usable information, return an empty pitch or appropriate fallback."
+      // If validation fails, throw so the friendly retry banner is displayed.
+      if (
+        !subjectLine ||
+        !hookThesis ||
+        !emailBody ||
+        keyEvidencePoints.length === 0
+      ) {
+        throw new Error(
+          "Validation check failed: Pitch response is incomplete or the provided company copy lacked usable facts. Please enrich the target company text and try again.",
+        );
+      }
+
+      const validatedResult: PitchResult = {
+        subjectLine,
+        hookThesis,
+        emailBody,
+        keyEvidencePoints,
+        // Compatibility aliases
+        angle_title: hookThesis,
+        evidence_snippet: keyEvidencePoints.join(" • "),
+        rationale:
+          typeof raw.rationale === "string" && raw.rationale.trim()
+            ? raw.rationale.trim()
+            : hookThesis,
+        subject_line: subjectLine,
+        email_body: emailBody,
+        call_to_action:
+          typeof raw.call_to_action === "string" && raw.call_to_action.trim()
+            ? raw.call_to_action.trim()
+            : "Would you be open to a quick 10-minute chat this week to explore this?",
+      };
 
       const recordId = "pitch_" + Date.now();
 
@@ -228,10 +284,10 @@ export default function App() {
         angle: selectedAngle,
         customAngleText:
           selectedAngle === "custom" ? customAngleText : undefined,
-        result: generated,
+        result: validatedResult,
       };
 
-      setCurrentResult(generated);
+      setCurrentResult(validatedResult);
       setCurrentRecordId(recordId);
 
       // Save to IndexedDB history

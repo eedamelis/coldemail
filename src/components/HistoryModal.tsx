@@ -64,9 +64,11 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
   const filteredRecords = records.filter((r) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
+    const angleText = (r.result.hookThesis || r.result.angle_title || "").toLowerCase();
+    const subjectText = (r.result.subjectLine || r.result.subject_line || "").toLowerCase();
     return (
-      r.result.angle_title.toLowerCase().includes(q) ||
-      r.result.subject_line.toLowerCase().includes(q) ||
+      angleText.includes(q) ||
+      subjectText.includes(q) ||
       r.companyText.toLowerCase().includes(q) ||
       r.offering.toLowerCase().includes(q)
     );
@@ -190,7 +192,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                     <div className="flex items-center flex-wrap gap-1.5">
                       <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#3E5C52] dark:text-[#7BA597] bg-[#F0F7F4] dark:bg-[#23352E] px-2 py-0.5 rounded-md border border-[#3E5C52]/20">
                         <Target className="w-3 h-3" />
-                        {record.result.angle_title}
+                        {record.result.hookThesis || record.result.angle_title}
                       </span>
                       <span className="text-[10px] text-[#7A7169] dark:text-[#A8A199] flex items-center gap-1">
                         <Calendar className="w-2.5 h-2.5" />
@@ -199,7 +201,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                     </div>
 
                     <h4 className="text-xs font-bold text-[#1B2B24] dark:text-[#EDEAE5] line-clamp-1 mt-1">
-                      {record.result.subject_line}
+                      {record.result.subjectLine || record.result.subject_line}
                     </h4>
                   </div>
 
