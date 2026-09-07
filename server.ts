@@ -131,10 +131,36 @@ Output strict JSON matching the requested schema.`;
 
     const text = response.text;
     if (!text) {
-      return res.status(502).json({ error: "Empty response received from Gemini." });
+      return res.status(502).json({ error: "Empty response received from Gemini. Please try again." });
     }
 
-    const parsed = JSON.parse(text);
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(text);
+    } catch (parseError) {
+      console.error("Invalid JSON from Gemini:", text, parseError);
+      return res.status(502).json({
+        error: "The AI service returned an unreadable response format. Please try again.",
+      });
+    }
+
+    // Verify all required fields
+    const requiredFields = [
+      "angle_title",
+      "evidence_snippet",
+      "rationale",
+      "subject_line",
+      "email_body",
+      "call_to_action",
+    ];
+    for (const field of requiredFields) {
+      if (!parsed[field] || typeof parsed[field] !== "string" || !(parsed[field] as string).trim()) {
+        return res.status(502).json({
+          error: "The AI pitch response was missing required fields. Please try again.",
+        });
+      }
+    }
+
     return res.json(parsed);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to generate pitch";

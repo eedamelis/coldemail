@@ -1,5 +1,5 @@
-import React from 'react';
-import { Sparkles, Moon, Sun, History } from 'lucide-react';
+import React from "react";
+import { Sparkles, Moon, Sun, History } from "lucide-react";
 
 interface HeaderProps {
   darkMode: boolean;
@@ -31,7 +31,10 @@ export const Header: React.FC<HeaderProps> = ({
               <p className="text-xs text-[#7A7169] dark:text-[#A8A199]">
                 Evidence-based cold outreach
               </p>
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#3E5C52] dark:bg-[#618D80]" title="Auto-saving to IndexedDB" />
+              <span
+                className="inline-block w-1.5 h-1.5 rounded-full bg-[#3E5C52] dark:bg-[#618D80]"
+                title="Auto-saving to IndexedDB"
+              />
             </div>
           </div>
         </div>
@@ -51,14 +54,15 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             onClick={onOpenHistory}
             id="history-btn"
-            className="relative p-2 rounded-lg text-[#7A7169] dark:text-[#A8A199] hover:bg-[#FAF9F7] dark:hover:bg-[#18221E] hover:text-[#1B2B24] dark:hover:text-[#EDEAE5] transition-colors cursor-pointer"
-            aria-label="View saved pitches"
-            title="Saved pitches in IndexedDB"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[#E0D7D0] dark:border-[#2C3933] bg-[#FAF9F7] dark:bg-[#18221E] text-xs font-semibold text-[#1B2B24] dark:text-[#EDEAE5] hover:bg-[#EAE4DF] dark:hover:bg-[#283832] transition-colors cursor-pointer"
+            aria-label="View recent pitches drawer"
+            title="Open recent pitches drawer (IndexedDB)"
           >
-            <History className="w-4 h-4" />
+            <History className="w-3.5 h-3.5 text-[#3E5C52] dark:text-[#7BA597]" />
+            <span className="hidden xs:inline sm:inline">Recent</span>
             {savedCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-[#3E5C52] text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-                {savedCount > 9 ? '9+' : savedCount}
+              <span className="bg-[#3E5C52] text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">
+                {savedCount}
               </span>
             )}
           </button>
@@ -68,10 +72,16 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={onToggleDarkMode}
             id="theme-toggle-btn"
             className="p-2 rounded-lg text-[#7A7169] dark:text-[#A8A199] hover:bg-[#FAF9F7] dark:hover:bg-[#18221E] hover:text-[#1B2B24] dark:hover:text-[#EDEAE5] transition-colors cursor-pointer"
-            aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-            title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={
+              darkMode ? "Switch to light mode" : "Switch to dark mode"
+            }
+            title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
           >
-            {darkMode ? <Sun className="w-4 h-4 text-amber-300" /> : <Moon className="w-4 h-4" />}
+            {darkMode ? (
+              <Sun className="w-4 h-4 text-amber-300" />
+            ) : (
+              <Moon className="w-4 h-4" />
+            )}
           </button>
         </div>
       </div>
